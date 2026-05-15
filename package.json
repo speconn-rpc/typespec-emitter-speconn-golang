@@ -1,6 +1,6 @@
 {
   "name": "@speconn-rpc/typespec-emitter-speconn-golang",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "type": "module",
   "main": "dist/index.js",
   "exports": {
@@ -20,5 +20,8 @@
   ],
   "dependencies": {
     "typescript": "^6.0.3"
+  },
+  "publishConfig": {
+    "registry": "http://10.199.64.20:3000/api/packages/speconn-rpc/npm/"
   }
 }

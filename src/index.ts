@@ -17,8 +17,7 @@ import { getNamespaceFullName } from "@typespec/compiler";
 
 function goPackageName(service: ServiceInfo): string {
   const nsName = getNamespaceFullName(service.namespace);
-  const parts = nsName.split(".");
-  return parts[parts.length - 1].toLowerCase();
+  return nsName.split(".").map(s => s.replace(/([a-z])([A-Z])/g, "$1_$2").replace(/([A-Z])([A-Z][a-z])/g, "$1_$2").toLowerCase()).join("_");
 }
 
 function goTypeName(model: { name?: string } | null): string {
@@ -52,8 +51,8 @@ function clientMethodBody(rpc: RpcInfo, service: ServiceInfo): string {
   const callerDecl = `\tcaller := speconnrpc.NewSpeconnCaller[${reqType}, ${resType}](
 \t\t"${rpc.path}",
 \t\t${transportGetter}(),
-\t\ttypes.${reqType}Codec,
-\t\ttypes.${resType}Codec,
+\t\t${reqType}Codec,
+\t\t${resType}Codec,
 \t)`;
 
   const optsBlock = `\tvar opts speconnrpc.CallOptions
@@ -205,7 +204,7 @@ function generateServerFile(service: ServiceInfo): string {
     const regFn = registerFunctionName(rpc);
     const lambda = registerHandlerLambda(rpc);
 
-    lines.push(`\tspeconnrpc.${regFn}[${reqType}, ${resType}](router, "${rpc.path}", types.${reqType}Codec, types.${resType}Codec, ${lambda})`);
+    lines.push(`\tspeconnrpc.${regFn}[${reqType}, ${resType}](router, "${rpc.path}", ${reqType}Codec, ${resType}Codec, ${lambda})`);
   }
   lines.push("}");
   lines.push("");
