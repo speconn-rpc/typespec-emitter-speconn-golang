@@ -217,21 +217,20 @@ export async function $onEmit(context: EmitContext): Promise<void> {
   const program = context.program;
   const services = collectServices(program);
   const outputDir = context.emitterOutputDir;
+  const opts = (context as any).options ?? {};
+  const emitClient = !opts["server-only"];
+  const emitServer = !opts["client-only"];
 
   for (const service of services) {
-    const clientContent = generateClientFile(service);
-    const serverContent = generateServerFile(service);
-
-    const clientName = clientFileName(service) + ".go";
-    const serverName = serverFileName(service) + ".go";
-
-    await emitFile(program, {
-      path: resolvePath(outputDir, clientName),
-      content: clientContent,
-    });
-    await emitFile(program, {
-      path: resolvePath(outputDir, serverName),
-      content: serverContent,
-    });
+    if (emitClient) {
+      const clientContent = generateClientFile(service);
+      const clientName = clientFileName(service) + ".go";
+      await emitFile(program, { path: resolvePath(outputDir, clientName), content: clientContent });
+    }
+    if (emitServer) {
+      const serverContent = generateServerFile(service);
+      const serverName = serverFileName(service) + ".go";
+      await emitFile(program, { path: resolvePath(outputDir, serverName), content: serverContent });
+    }
   }
 }
