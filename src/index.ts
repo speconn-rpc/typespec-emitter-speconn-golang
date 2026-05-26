@@ -29,28 +29,13 @@ function methodPascal(rpc: RpcInfo): string {
   return toPascalCase(rpc.name);
 }
 
-function transportVarName(service: ServiceInfo): string {
-  const name = service.serviceName;
-  return `_${name.charAt(0).toLowerCase() + name.slice(1)}Transport`;
-}
-
-function setTransportFuncName(service: ServiceInfo): string {
-  return `Set${service.serviceName}Transport`;
-}
-
-function getTransportFuncName(service: ServiceInfo): string {
-  const name = service.serviceName;
-  return `get${name.charAt(0).toLowerCase() + name.slice(1)}Transport`;
-}
-
-function clientMethodBody(rpc: RpcInfo, service: ServiceInfo): string {
+function clientMethodBody(rpc: RpcInfo): string {
   const reqType = goTypeName(rpc.inputType);
   const resType = goTypeName(rpc.outputType);
-  const transportGetter = getTransportFuncName(service);
 
   const callerDecl = `\tcaller := speconnrpc.NewSpeconnCaller[${reqType}, ${resType}](
 \t\t"${rpc.path}",
-\t\t${transportGetter}(),
+\t\tc.getTransport(),
 \t\t${reqType}Codec,
 \t\t${resType}Codec,
 \t)`;
@@ -80,6 +65,7 @@ ${optsBlock}
 
 function generateClientFile(service: ServiceInfo): string {
   const pkgName = goPackageName(service);
+  const serviceName = service.serviceName;
   const transportVar = transportVarName(service);
   const setFunc = setTransportFuncName(service);
   const getFunc = getTransportFuncName(service);
@@ -93,15 +79,25 @@ function generateClientFile(service: ServiceInfo): string {
   lines.push(")");
   lines.push("");
 
-  lines.push(`var ${transportVar} speconnrpc.SpeconnTransport`);
-  lines.push("");
-  lines.push(`func ${setFunc}(t speconnrpc.SpeconnTransport) {`);
-  lines.push(`\t${transportVar} = t`);
+  lines.push(`type ${serviceName}Client struct {`);
+  lines.push("\ttransport speconnrpc.SpeconnTransport");
   lines.push("}");
   lines.push("");
-  lines.push(`func ${getFunc}() speconnrpc.SpeconnTransport {`);
-  lines.push(`\tif ${transportVar} != nil {`);
-  lines.push(`\t\treturn ${transportVar}`);
+  lines.push(`func New${serviceName}Client(t speconnrpc.SpeconnTransport) *${serviceName}Client {`);
+  lines.push(`\treturn &${serviceName}Client{transport: t}`);
+  lines.push("}");
+  lines.push("");
+  lines.push(`func New${serviceName}ClientWithDefault() *${serviceName}Client {`);
+  lines.push(`\treturn &${serviceName}Client{transport: speconnrpc.GetDefaultTransport()}`);
+  lines.push("}");
+  lines.push("");
+  lines.push(`func (c *${serviceName}Client) SetTransport(t speconnrpc.SpeconnTransport) {`);
+  lines.push("\tc.transport = t");
+  lines.push("}");
+  lines.push("");
+  lines.push(`func (c *${serviceName}Client) getTransport() speconnrpc.SpeconnTransport {`);
+  lines.push("\tif c.transport != nil {");
+  lines.push("\t\treturn c.transport");
   lines.push("\t}");
   lines.push("\treturn speconnrpc.GetDefaultTransport()");
   lines.push("}");
@@ -113,16 +109,16 @@ function generateClientFile(service: ServiceInfo): string {
     const methodName = methodPascal(rpc);
 
     if (rpc.streamType === "unary") {
-      lines.push(`func ${methodName}(req ${reqType}, options ...speconnrpc.CallOptions) (${resType}, error) {`);
+      lines.push(`func (c *${serviceName}Client) ${methodName}(req ${reqType}, options ...speconnrpc.CallOptions) (${resType}, error) {`);
     } else if (rpc.streamType === "server") {
-      lines.push(`func ${methodName}(req ${reqType}, options ...speconnrpc.CallOptions) <-chan speconnrpc.StreamResult[${resType}] {`);
+      lines.push(`func (c *${serviceName}Client) ${methodName}(req ${reqType}, options ...speconnrpc.CallOptions) <-chan speconnrpc.StreamResult[${resType}] {`);
     } else if (rpc.streamType === "client") {
-      lines.push(`func ${methodName}(reqs <-chan ${reqType}, options ...speconnrpc.CallOptions) (${resType}, error) {`);
+      lines.push(`func (c *${serviceName}Client) ${methodName}(reqs <-chan ${reqType}, options ...speconnrpc.CallOptions) (${resType}, error) {`);
     } else {
-      lines.push(`func ${methodName}(reqs <-chan ${reqType}, options ...speconnrpc.CallOptions) <-chan speconnrpc.StreamResult[${resType}] {`);
+      lines.push(`func (c *${serviceName}Client) ${methodName}(reqs <-chan ${reqType}, options ...speconnrpc.CallOptions) <-chan speconnrpc.StreamResult[${resType}] {`);
     }
 
-    lines.push(clientMethodBody(rpc, service));
+    lines.push(clientMethodBody(rpc));
     lines.push("}");
     lines.push("");
   }
